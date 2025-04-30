@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pixel Art Tool</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+        }
+        .controls {
+            margin-bottom: 20px;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(100, 5px);
+            grid-template-rows: repeat(100, 5px);
+            border: 1px solid #ccc;
+            cursor: crosshair;
+        }
+        .pixel {
+            width: 5px;
+            height: 5px;
+            border: none;
+            background-color: #fff;
+        }
+    </style>
+</head>
+<body>
+    <div class="controls">
+        <input type="color" id="colorPicker" value="#000000">
+        <button id="clearGrid">Clear Grid</button>
+    </div>
+    <div class="grid" id="pixelGrid"></div>
+
+    <script>
+        const grid = document.getElementById('pixelGrid');
+        const colorPicker = document.getElementById('colorPicker');
+        const clearButton = document.getElementById('clearGrid');
+        let isDrawing = false;
+
+        // Create 100x100 grid
+        for (let i = 0; i < 100 * 100; i++) {
+            const pixel = document.createElement('div');
+            pixel.classList.add('pixel');
+            pixel.addEventListener('mousedown', draw);
+            pixel.addEventListener('mouseenter', drawIfDragging);
+            pixel.addEventListener('mouseup', stopDrawing);
+            grid.appendChild(pixel);
+        }
+
+        document.addEventListener('mouseup', stopDrawing);
+
+        function draw(e) {
+            isDrawing = true;
+            e.target.style.backgroundColor = colorPicker.value;
+        }
+
+        function drawIfDragging(e) {
+            if (isDrawing) {
+                e.target.style.backgroundColor = colorPicker.value;
+            }
+        }
+
+        function stopDrawing() {
+            isDrawing = false;
+        }
+
+        clearButton.addEventListener('click', () => {
+            const pixels = document.querySelectorAll('.pixel');
+            pixels.forEach(pixel => pixel.style.backgroundColor = '#fff');
+        });
+    </script>
+</body>
+</html>
