@@ -42,6 +42,7 @@
         const colorPicker = document.getElementById('colorPicker');
         const clearButton = document.getElementById('clearGrid');
         let isDrawing = false;
+        let lastPixel = null;
 
         // Create 100x100 grid
         for (let i = 0; i < 100 * 100; i++) {
@@ -57,17 +58,54 @@
 
         function draw(e) {
             isDrawing = true;
-            e.target.style.backgroundColor = colorPicker.value;
+            lastPixel = e.target;
+            const [x1, y1] = getPixelXY(lastPixel);
+            drawPixel(x1, y1);
         }
 
         function drawIfDragging(e) {
             if (isDrawing) {
-                e.target.style.backgroundColor = colorPicker.value;
+                const [x1, y1] = getPixelXY(lastPixel);
+                const [x2, y2] = getPixelXY(e.target);
+                drawSmoothLine(x1, y1, x2, y2);
+                lastPixel = e.target;
             }
         }
 
         function stopDrawing() {
             isDrawing = false;
+        }
+
+        function getPixelXY(pixel) {
+            const pixels = document.querySelectorAll('.pixel');
+            const currentIndex = Array.from(pixels).indexOf(pixel);
+            const gridSize = 100;
+            const y = Math.floor(currentIndex / gridSize);
+            const x = currentIndex % gridSize;
+            return [x, y];
+        }
+        function getPixelFromXY(x, y) {
+            const pixels = document.querySelectorAll('.pixel');
+            const gridSize = 100;
+            const index = y * gridSize + x;
+            return pixels[index];
+        }
+
+        function drawSmoothLine(x1, y1, x2, y2) {
+            const dx = x2 - x1;
+            const dy = y2 - y1;
+            const steps = Math.max(Math.abs(dx), Math.abs(dy));
+            for (let i = 0; i <= steps; i++) {
+                const x = Math.floor(x1 + (dx * i) / steps);
+                const y = Math.floor(y1 + (dy * i) / steps);    
+                drawPixel(x, y);    
+            }
+        }
+        function drawPixel(x, y) {
+            const pixel = getPixelFromXY(x, y);
+            if (pixel) {
+                pixel.style.backgroundColor = colorPicker.value;
+            }
         }
 
         clearButton.addEventListener('click', () => {
