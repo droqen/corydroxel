@@ -39,6 +39,7 @@
     <div class="controls">
         <input type="color" id="colorPicker" value="#000000">
         <button id="clearGrid">Clear Grid</button>
+        <button id="toggleBrushMode">Switch to Tile Brush</button>
         <div class="tooltip" id="colorTooltip">Right-click to pick color</div>
     </div>
     <canvas class="grid" id="pixelGrid" width="500" height="500"></canvas>
@@ -48,12 +49,14 @@
         const ctx = canvas.getContext('2d');
         const colorPicker = document.getElementById('colorPicker');
         const clearButton = document.getElementById('clearGrid');
+        const toggleBrushModeButton = document.getElementById('toggleBrushMode');
         const colorTooltip = document.getElementById('colorTooltip');
         let isDrawing = false;
         let lastPixel = null;
         const gridSize = 100;
         const pixelSize = canvas.width / gridSize;
         let imageData = ctx.createImageData(canvas.width, canvas.height);
+        let isTileBrushMode = false;
 
         // Draw initial grid lines
         drawGridLines();
@@ -64,6 +67,11 @@
         canvas.addEventListener('dblclick', dblClick);
         canvas.addEventListener('contextmenu', pickColor);
         document.addEventListener('mouseup', stopDrawing);
+
+        toggleBrushModeButton.addEventListener('click', () => {
+            isTileBrushMode = !isTileBrushMode;
+            toggleBrushModeButton.textContent = `Switch to ${isTileBrushMode ? 'Pixel' : 'Tile'} Brush`;
+        });
 
         function drawGridLines() {
             ctx.beginPath();
@@ -105,7 +113,12 @@
             const x = Math.floor((e.clientX - rect.left) / pixelSize);
             const y = Math.floor((e.clientY - rect.top) / pixelSize);
             lastPixel = { x, y };
-            drawPixel(x, y);
+            if (isTileBrushMode) {
+                const [tileX, tileY] = pixelXYToTileXY(x, y);
+                fillTile(tileX, tileY);
+            } else {
+                drawPixel(x, y);
+            }
         }
 
         function drawIfDragging(e) {
@@ -113,7 +126,15 @@
                 const rect = canvas.getBoundingClientRect();
                 const x = Math.floor((e.clientX - rect.left) / pixelSize);
                 const y = Math.floor((e.clientY - rect.top) / pixelSize);
-                drawSmoothLine(lastPixel.x, lastPixel.y, x, y);
+                if (isTileBrushMode) {
+                    const [tileX, tileY] = pixelXYToTileXY(x, y);
+                    const [lastTileX, lastTileY] = pixelXYToTileXY(lastPixel.x, lastPixel.y);
+                    if (tileX !== lastTileX || tileY !== lastTileY) {
+                        fillTile(tileX, tileY);
+                    }
+                } else {
+                    drawSmoothLine(lastPixel.x, lastPixel.y, x, y);
+                }
                 lastPixel = { x, y };
             }
         }
@@ -135,7 +156,7 @@
             const rect = canvas.getBoundingClientRect();
             const x = Math.floor((e.clientX - rect.left) / pixelSize);
             const y = Math.floor((e.clientY - rect.top) / pixelSize);
-            const pixelData = ctx.getImageData(x * pixelSize, y * pixelSize, 1, 1).data;
+            const pixelData = ctx.getImageData(x * pixelSize + 1, y * pixelSize + 1, 1, 1).data; // Offset to avoid grid lines
             const hexColor = rgbToHex(`rgb(${pixelData[0]}, ${pixelData[1]}, ${pixelData[2]})`);
             colorPicker.value = hexColor;
             
