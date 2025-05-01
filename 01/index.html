@@ -54,6 +54,7 @@
         const colorPicker = document.getElementById('colorPicker');
         const clearButton = document.getElementById('clearGrid');
         let isDrawing = false;
+        let isEyedropping = false;
         let lastPixel = null;
 
         // Create 100x100 grid with tile boundaries
@@ -71,16 +72,27 @@
             pixel.addEventListener('mouseenter', drawIfDragging);
             pixel.addEventListener('mouseup', stopDrawing);
             pixel.addEventListener('dblclick', dblClick);
+            pixel.addEventListener('contextmenu', 
+                function(e) {
+                    e.preventDefault();
+                }
+            );
             grid.appendChild(pixel);
         }
 
         document.addEventListener('mouseup', stopDrawing);
 
         function draw(e) {
-            isDrawing = true;
-            lastPixel = e.target;
-            const [x1, y1] = getPixelXY(lastPixel);
-            drawPixel(x1, y1);
+            stopDrawing();
+            if (e.button !== 2) {
+                isDrawing = true;
+                lastPixel = e.target;
+                const [x1, y1] = getPixelXY(lastPixel);
+                drawPixel(x1, y1);
+            }
+            if (e.button === 2) {
+                isEyedropping = true;
+            }
         }
 
         function drawIfDragging(e) {
@@ -90,10 +102,17 @@
                 drawSmoothLine(x1, y1, x2, y2);
                 lastPixel = e.target;
             }
+            if (isEyedropping) {
+                const color = e.target.style.backgroundColor || 'rgb(255, 255, 255)'; // Default to white if not initialized
+                if (color) {
+                    colorPicker.value = rgbToHex(color);
+                }
+            }
         }
 
         function stopDrawing() {
             isDrawing = false;
+            isEyedropping = false;
         }
 
         function dblClick(e) {
@@ -152,6 +171,13 @@
             const pixels = document.querySelectorAll('.pixel');
             pixels.forEach(pixel => pixel.style.backgroundColor = '#fff');
         });
+
+        // Add helper function to convert RGB to Hex
+        function rgbToHex(rgb) {
+            if (!rgb || rgb === 'rgb(255, 255, 255)') return '#ffffff';
+            const [r, g, b] = rgb.match(/\d+/g).map(Number);
+            return '#' + [r, g, b].map(x => x.toString(16).padStart(2, '0')).join('');
+        }
     </script>
 </body>
 </html>
