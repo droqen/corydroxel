@@ -19,14 +19,24 @@
             display: grid;
             grid-template-columns: repeat(100, 5px);
             grid-template-rows: repeat(100, 5px);
-            border: 1px solid #ccc;
+            border: 1px solid #333;
+            border-right: 2px solid #000;
+            border-bottom: 2px solid #000;
             cursor: crosshair;
+            background-color: #f0f0f0;
         }
         .pixel {
             width: 5px;
             height: 5px;
-            border: none;
+            border-left: 1px solid rgba(0, 0, 0, 0.1);
+            border-top: 1px solid rgba(0, 0, 0, 0.1);
             background-color: #fff;
+        }
+        .pixel.tile-boundary-left {
+            border-left: 1px solid #f66;
+        }
+        .pixel.tile-boundary-top {
+            border-top: 1px solid #f66;
         }
     </style>
 </head>
@@ -44,13 +54,21 @@
         let isDrawing = false;
         let lastPixel = null;
 
-        // Create 100x100 grid
+        // Create 100x100 grid with tile boundaries
         for (let i = 0; i < 100 * 100; i++) {
             const pixel = document.createElement('div');
             pixel.classList.add('pixel');
+            
+            // Add tile boundary classes every 10 pixels
+            const x = i % 100;
+            const y = Math.floor(i / 100);
+            if (x > 0 && x % 10 === 0) pixel.classList.add('tile-boundary-left');
+            if (y > 0 && y % 10 === 0) pixel.classList.add('tile-boundary-top');
+            
             pixel.addEventListener('mousedown', draw);
             pixel.addEventListener('mouseenter', drawIfDragging);
             pixel.addEventListener('mouseup', stopDrawing);
+            pixel.addEventListener('dblclick', dblClick);
             grid.appendChild(pixel);
         }
 
@@ -74,6 +92,26 @@
 
         function stopDrawing() {
             isDrawing = false;
+        }
+
+        function dblClick(e) {
+            const [x, y] = getPixelXY(e.target);
+            const [tileX, tileY] = pixelXYToTileXY(x, y);
+            fillTile(tileX, tileY);
+        }
+
+        // Convert pixel coordinates to tile coordinates
+        function pixelXYToTileXY(x, y) {
+            return [Math.floor(x / 10), Math.floor(y / 10)];
+        }
+
+        function fillTile(x, y) {
+            const [leftPixelX, topPixelY] = [x * 10, y * 10];
+            for (let x = leftPixelX; x < leftPixelX + 10; x++) {
+                for (let y = topPixelY; y < topPixelY + 10; y++) {
+                    drawPixel(x, y);
+                }
+            }
         }
 
         function getPixelXY(pixel) {
