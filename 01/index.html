@@ -16,29 +16,12 @@
             margin-bottom: 20px;
         }
         .grid {
-            display: grid;
-            grid-template-columns: repeat(100, 5px);
-            grid-template-rows: repeat(100, 5px);
             border: 1px solid #333;
             border-right: 2px solid #000;
             border-bottom: 2px solid #000;
             cursor: crosshair;
             background-color: #f0f0f0;
             user-select: none;
-        }
-        .pixel {
-            width: 5px;
-            height: 5px;
-            border-left: 1px solid rgba(0, 0, 0, 0.1);
-            border-top: 1px solid rgba(0, 0, 0, 0.1);
-            background-color: #fff;
-            user-select: none;
-        }
-        .pixel.tile-boundary-left {
-            border-left: 1px solid #f66;
-        }
-        .pixel.tile-boundary-top {
-            border-top: 1px solid #f66;
         }
         .tooltip {
             position: absolute;
