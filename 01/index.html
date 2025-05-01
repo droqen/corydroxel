@@ -14,6 +14,10 @@
         }
         .controls {
             margin-bottom: 20px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            align-items: center;
         }
         .grid {
             border: 1px solid #333;
@@ -33,6 +37,31 @@
             pointer-events: none;
             display: none;
         }
+        .pattern-gallery {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+            margin-top: 10px;
+            max-width: 500px;
+        }
+        .pattern-option {
+            width: 50px;
+            height: 50px;
+            border: 1px solid #ccc;
+            cursor: pointer;
+        }
+        .pattern-option.selected {
+            border: 2px solid #ff6666;
+        }
+        .pattern-container {
+            display: none;
+            margin-top: 10px;
+        }
+        .section-title {
+            font-weight: bold;
+            margin-top: 10px;
+            width: 100%;
+        }
     </style>
 </head>
 <body>
@@ -42,6 +71,12 @@
         <button id="toggleBrushMode">Switch to Tile Brush</button>
         <div class="tooltip" id="colorTooltip">Right-click to pick color</div>
     </div>
+    
+    <div class="pattern-container" id="patternContainer">
+        <div class="section-title">Select Tile Pattern:</div>
+        <div class="pattern-gallery" id="patternGallery"></div>
+    </div>
+    
     <canvas class="grid" id="pixelGrid" width="500" height="500"></canvas>
 
     <script>
@@ -51,26 +86,194 @@
         const clearButton = document.getElementById('clearGrid');
         const toggleBrushModeButton = document.getElementById('toggleBrushMode');
         const colorTooltip = document.getElementById('colorTooltip');
+        const patternContainer = document.getElementById('patternContainer');
+        const patternGallery = document.getElementById('patternGallery');
+        
         let isDrawing = false;
         let lastPixel = null;
         const gridSize = 100;
-        const tileSize = canvas.width / gridSize;
+        const pixelSize = canvas.width / gridSize;
         let imageData = ctx.createImageData(canvas.width, canvas.height);
         let isTileBrushMode = false;
-        let tilePattern = null;
+        let selectedPattern = null;
+
+        // Define some tile patterns (10x10 pixel patterns)
+        const tilePatterns = [
+            {
+                name: "Solid Color",
+                draw: (tileX, tileY, color) => {
+                    const leftPixelX = tileX * 10;
+                    const topPixelY = tileY * 10;
+                    for (let x = leftPixelX; x < leftPixelX + 10; x++) {
+                        for (let y = topPixelY; y < topPixelY + 10; y++) {
+                            drawPixel(x, y, color);
+                        }
+                    }
+                }
+            },
+            {
+                name: "Checker",
+                draw: (tileX, tileY, color) => {
+                    const leftPixelX = tileX * 10;
+                    const topPixelY = tileY * 10;
+                    for (let x = leftPixelX; x < leftPixelX + 10; x++) {
+                        for (let y = topPixelY; y < topPixelY + 10; y++) {
+                            if ((x + y) % 2 === 0) {
+                                drawPixel(x, y, color);
+                            }
+                        }
+                    }
+                }
+            },
+            {
+                name: "Diagonal Stripes",
+                draw: (tileX, tileY, color) => {
+                    const leftPixelX = tileX * 10;
+                    const topPixelY = tileY * 10;
+                    for (let x = leftPixelX; x < leftPixelX + 10; x++) {
+                        for (let y = topPixelY; y < topPixelY + 10; y++) {
+                            if ((x - leftPixelX + y - topPixelY) % 3 === 0) {
+                                drawPixel(x, y, color);
+                            }
+                        }
+                    }
+                }
+            },
+            {
+                name: "Brick",
+                draw: (tileX, tileY, color) => {
+                    const leftPixelX = tileX * 10;
+                    const topPixelY = tileY * 10;
+                    for (let x = leftPixelX; x < leftPixelX + 10; x++) {
+                        for (let y = topPixelY; y < topPixelY + 10; y++) {
+                            // Draw horizontal lines
+                            if ((y - topPixelY) % 5 === 0) {
+                                drawPixel(x, y, color);
+                            }
+                            // Draw vertical lines, offset every other row
+                            const rowOffset = Math.floor((y - topPixelY) / 5) % 2 === 0 ? 0 : 5;
+                            if ((x - leftPixelX + rowOffset) % 10 === 0) {
+                                drawPixel(x, y, color);
+                            }
+                        }
+                    }
+                }
+            },
+            {
+                name: "Cross",
+                draw: (tileX, tileY, color) => {
+                    const leftPixelX = tileX * 10;
+                    const topPixelY = tileY * 10;
+                    for (let x = leftPixelX; x < leftPixelX + 10; x++) {
+                        for (let y = topPixelY; y < topPixelY + 10; y++) {
+                            if (x - leftPixelX === 4 || x - leftPixelX === 5 || 
+                                y - topPixelY === 4 || y - topPixelY === 5) {
+                                drawPixel(x, y, color);
+                            }
+                        }
+                    }
+                }
+            },
+            {
+                name: "Dots",
+                draw: (tileX, tileY, color) => {
+                    const leftPixelX = tileX * 10;
+                    const topPixelY = tileY * 10;
+                    for (let i = 0; i < 3; i++) {
+                        for (let j = 0; j < 3; j++) {
+                            drawPixel(leftPixelX + 2 + i*3, topPixelY + 2 + j*3, color);
+                        }
+                    }
+                }
+            },
+            {
+                name: "Border",
+                draw: (tileX, tileY, color) => {
+                    const leftPixelX = tileX * 10;
+                    const topPixelY = tileY * 10;
+                    for (let x = leftPixelX; x < leftPixelX + 10; x++) {
+                        for (let y = topPixelY; y < topPixelY + 10; y++) {
+                            if (x === leftPixelX || x === leftPixelX + 9 || 
+                                y === topPixelY || y === topPixelY + 9) {
+                                drawPixel(x, y, color);
+                            }
+                        }
+                    }
+                }
+            },
+            {
+                name: "Diamond",
+                draw: (tileX, tileY, color) => {
+                    const leftPixelX = tileX * 10;
+                    const topPixelY = tileY * 10;
+                    for (let x = leftPixelX; x < leftPixelX + 10; x++) {
+                        for (let y = topPixelY; y < topPixelY + 10; y++) {
+                            const dx = Math.abs(x - (leftPixelX + 4.5));
+                            const dy = Math.abs(y - (topPixelY + 4.5));
+                            if (dx + dy <= 4.5) {
+                                drawPixel(x, y, color);
+                            }
+                        }
+                    }
+                }
+            }
+        ];
+
+        // Create pattern preview tiles
+        function createPatternPreviews() {
+            patternGallery.innerHTML = '';
+            tilePatterns.forEach((pattern, index) => {
+                const previewCanvas = document.createElement('canvas');
+                previewCanvas.width = 50;
+                previewCanvas.height = 50;
+                previewCanvas.className = 'pattern-option';
+                if (index === 0) {
+                    previewCanvas.classList.add('selected');
+                    selectedPattern = pattern;
+                }
+                
+                const previewCtx = previewCanvas.getContext('2d');
+                previewCtx.scale(5, 5);  // Scale up the 10x10 pattern to fit the 50x50 preview
+                
+                // Draw the pattern on the preview
+                const tempDrawPixel = drawPixel;
+                drawPixel = (x, y, color) => {
+                    previewCtx.fillStyle = color || colorPicker.value;
+                    previewCtx.fillRect(x % 10, y % 10, 1, 1);
+                };
+                
+                pattern.draw(0, 0, colorPicker.value);
+                drawPixel = tempDrawPixel;
+                
+                previewCanvas.addEventListener('click', () => {
+                    document.querySelectorAll('.pattern-option').forEach(el => el.classList.remove('selected'));
+                    previewCanvas.classList.add('selected');
+                    selectedPattern = pattern;
+                });
+                
+                patternGallery.appendChild(previewCanvas);
+            });
+        }
 
         // Draw initial grid lines
         drawGridLines();
+        createPatternPreviews();
+        selectedPattern = tilePatterns[0]; // Default to the first pattern (solid color)
 
         canvas.addEventListener('mousedown', draw);
         canvas.addEventListener('mousemove', drawIfDragging);
         canvas.addEventListener('mouseup', stopDrawing);
-        canvas.addEventListener('contextmenu', pick);
+        canvas.addEventListener('dblclick', dblClick);
+        canvas.addEventListener('contextmenu', pickColor);
         document.addEventListener('mouseup', stopDrawing);
+
+        // Update pattern previews when color changes
+        colorPicker.addEventListener('input', createPatternPreviews);
 
         toggleBrushModeButton.addEventListener('click', () => {
             isTileBrushMode = !isTileBrushMode;
             toggleBrushModeButton.textContent = `Switch to ${isTileBrushMode ? 'Pixel' : 'Tile'} Brush`;
+            patternContainer.style.display = isTileBrushMode ? 'block' : 'none';
         });
 
         function drawGridLines() {
@@ -78,13 +281,13 @@
             ctx.strokeStyle = 'rgba(0, 0, 0, 0.1)';
             // Draw vertical lines
             for (let i = 0; i <= gridSize; i++) {
-                const x = i * tileSize;
+                const x = i * pixelSize;
                 ctx.moveTo(x, 0);
                 ctx.lineTo(x, canvas.height);
             }
             // Draw horizontal lines
             for (let i = 0; i <= gridSize; i++) {
-                const y = i * tileSize;
+                const y = i * pixelSize;
                 ctx.moveTo(0, y);
                 ctx.lineTo(canvas.width, y);
             }
@@ -94,12 +297,12 @@
             ctx.beginPath();
             ctx.strokeStyle = '#f66';
             for (let i = 0; i <= gridSize; i += 10) {
-                const x = i * tileSize;
+                const x = i * pixelSize;
                 ctx.moveTo(x, 0);
                 ctx.lineTo(x, canvas.height);
             }
             for (let i = 0; i <= gridSize; i += 10) {
-                const y = i * tileSize;
+                const y = i * pixelSize;
                 ctx.moveTo(0, y);
                 ctx.lineTo(canvas.width, y);
             }
@@ -110,12 +313,12 @@
             if (e.button !== 0) return; // Only draw with left click
             isDrawing = true;
             const rect = canvas.getBoundingClientRect();
-            const x = Math.floor((e.clientX - rect.left) / tileSize);
-            const y = Math.floor((e.clientY - rect.top) / tileSize);
+            const x = Math.floor((e.clientX - rect.left) / pixelSize);
+            const y = Math.floor((e.clientY - rect.top) / pixelSize);
             lastPixel = { x, y };
             if (isTileBrushMode) {
                 const [tileX, tileY] = pixelXYToTileXY(x, y);
-                drawTile(e, tileX, tileY);
+                fillTile(tileX, tileY);
             } else {
                 drawPixel(x, y);
             }
@@ -124,13 +327,13 @@
         function drawIfDragging(e) {
             if (isDrawing) {
                 const rect = canvas.getBoundingClientRect();
-                const x = Math.floor((e.clientX - rect.left) / tileSize);
-                const y = Math.floor((e.clientY - rect.top) / tileSize);
+                const x = Math.floor((e.clientX - rect.left) / pixelSize);
+                const y = Math.floor((e.clientY - rect.top) / pixelSize);
                 if (isTileBrushMode) {
                     const [tileX, tileY] = pixelXYToTileXY(x, y);
                     const [lastTileX, lastTileY] = pixelXYToTileXY(lastPixel.x, lastPixel.y);
                     if (tileX !== lastTileX || tileY !== lastTileY) {
-                        drawTile(e, tileX, tileY);
+                        fillTile(tileX, tileY);
                     }
                 } else {
                     drawSmoothLine(lastPixel.x, lastPixel.y, x, y);
@@ -143,80 +346,36 @@
             isDrawing = false;
         }
 
-        function showTooltip(e, message) {
-            // Clear any existing timeout to debounce the hiding
-            if (showTooltip.hideTimeout) {
-                clearTimeout(showTooltip.hideTimeout);
-            }
-            
-            colorTooltip.textContent = message;
-            colorTooltip.style.display = 'block';
-            colorTooltip.style.left = `${e.pageX + 10}px`;
-            colorTooltip.style.top = `${e.pageY + 10}px`;
-            
-            // Hide tooltip after 1.5 seconds, debounced
-            showTooltip.hideTimeout = setTimeout(() => {
-                colorTooltip.style.display = 'none';
-            }, 1500);
-        }
-
-        function pick(e) {
-            e.preventDefault();
-            if (isTileBrushMode) {
-                pickTile(e);
-            } else {
-                pickColor(e);
-            }
+        function dblClick(e) {
+            const rect = canvas.getBoundingClientRect();
+            const x = Math.floor((e.clientX - rect.left) / pixelSize);
+            const y = Math.floor((e.clientY - rect.top) / pixelSize);
+            const [tileX, tileY] = pixelXYToTileXY(x, y);
+            fillTile(tileX, tileY);
         }
 
         function pickColor(e) {
             e.preventDefault();
             const rect = canvas.getBoundingClientRect();
-            const x = Math.floor((e.clientX - rect.left) / tileSize);
-            const y = Math.floor((e.clientY - rect.top) / tileSize);
-            const pixelData = ctx.getImageData(x * tileSize + 1, y * tileSize + 1, 1, 1).data; // Offset to avoid grid lines
+            const x = Math.floor((e.clientX - rect.left) / pixelSize);
+            const y = Math.floor((e.clientY - rect.top) / pixelSize);
+            const pixelData = ctx.getImageData(x * pixelSize + 1, y * pixelSize + 1, 1, 1).data; // Offset to avoid grid lines
             const hexColor = rgbToHex(`rgb(${pixelData[0]}, ${pixelData[1]}, ${pixelData[2]})`);
             colorPicker.value = hexColor;
             
             // Show tooltip with the color value
-            showTooltip(e, `Color picked: ${hexColor}`);
-        }
-
-        // Pick a tile from the grid
-        function pickTile(e) {
-            const rect = canvas.getBoundingClientRect();
-            const x = Math.floor((e.clientX - rect.left) / tileSize);
-            const y = Math.floor((e.clientY - rect.top) / tileSize);
-            const [tileX, tileY] = pixelXYToTileXY(x, y);
-
-            const patternCanvas = document.createElement('canvas');
-            patternCanvas.width = tileSize * 10;  // 10x10 pixel tile
-            patternCanvas.height = tileSize * 10;
-            const pCtx = patternCanvas.getContext('2d');
-            for (let x = 0; x < 10; x++) {
-                for (let y = 0; y < 10; y++) {
-                    const color = getColorFromPixel(tileX * 10 + x, tileY * 10 + y);
-                    if (color) {
-                        pCtx.fillStyle = color;
-                        pCtx.fillRect(x * tileSize, y * tileSize, tileSize, tileSize);
-                    }
-                }
-            }
-
-            tilePattern = ctx.createPattern(patternCanvas, 'repeat');
+            colorTooltip.textContent = `Color picked: ${hexColor}`;
+            colorTooltip.style.display = 'block';
+            colorTooltip.style.left = `${e.pageX + 10}px`;
+            colorTooltip.style.top = `${e.pageY + 10}px`;
             
-            showTooltip(e, `Tile picked: ${tileX}, ${tileY}`);
+            // Create new pattern previews with the selected color
+            createPatternPreviews();
             
-            return patternCanvas;
-        }
-
-        function getColorFromPixel(x, y) {
-            const pixelData = ctx.getImageData(x * tileSize + 1, y * tileSize + 1, 1, 1).data; // Offset to avoid grid lines
-            if (pixelData[3] === 0) {
-                return null;
-            }
-            const hexColor = rgbToHex(`rgb(${pixelData[0]}, ${pixelData[1]}, ${pixelData[2]})`);
-            return hexColor;
+            // Hide tooltip after 1.5 seconds
+            setTimeout(() => {
+                colorTooltip.style.display = 'none';
+            }, 1500);
         }
 
         // Helper function to convert RGB to HEX
@@ -246,17 +405,9 @@
             return [Math.floor(x / 10), Math.floor(y / 10)];
         }
 
-        function drawTile(e, tileX, tileY) {
-            const leftPixelX = tileX * 10;
-            const topPixelY = tileY * 10;
-            
-            if (!tilePattern) {
-                showTooltip(e, `No tile to draw`);
-                return;
-            } else {
-                console.log("tilePattern", tilePattern);
-                ctx.fillStyle = tilePattern;
-                ctx.fillRect(leftPixelX * tileSize, topPixelY * tileSize, tileSize * 10, tileSize * 10);
+        function fillTile(tileX, tileY) {
+            if (selectedPattern) {
+                selectedPattern.draw(tileX, tileY, colorPicker.value);
             }
         }
 
@@ -271,10 +422,10 @@
             }
         }
 
-        function drawPixel(x, y) {
+        function drawPixel(x, y, color) {
             if (x >= 0 && x < gridSize && y >= 0 && y < gridSize) {
-                ctx.fillStyle = colorPicker.value;
-                ctx.fillRect(x * tileSize, y * tileSize, tileSize, tileSize);
+                ctx.fillStyle = color || colorPicker.value;
+                ctx.fillRect(x * pixelSize, y * pixelSize, pixelSize, pixelSize);
             }
         }
 
