@@ -40,12 +40,23 @@
         .pixel.tile-boundary-top {
             border-top: 1px solid #f66;
         }
+        .tooltip {
+            position: absolute;
+            padding: 5px;
+            background: rgba(0,0,0,0.7);
+            color: white;
+            border-radius: 3px;
+            font-size: 12px;
+            pointer-events: none;
+            display: none;
+        }
     </style>
 </head>
 <body>
     <div class="controls">
         <input type="color" id="colorPicker" value="#000000">
         <button id="clearGrid">Clear Grid</button>
+        <div class="tooltip" id="colorTooltip">Right-click to pick color</div>
     </div>
     <div class="grid" id="pixelGrid"></div>
 
@@ -53,8 +64,8 @@
         const grid = document.getElementById('pixelGrid');
         const colorPicker = document.getElementById('colorPicker');
         const clearButton = document.getElementById('clearGrid');
+        const colorTooltip = document.getElementById('colorTooltip');
         let isDrawing = false;
-        let isEyedropping = false;
         let lastPixel = null;
 
         // Create 100x100 grid with tile boundaries
@@ -72,27 +83,23 @@
             pixel.addEventListener('mouseenter', drawIfDragging);
             pixel.addEventListener('mouseup', stopDrawing);
             pixel.addEventListener('dblclick', dblClick);
-            pixel.addEventListener('contextmenu', 
-                function(e) {
-                    e.preventDefault();
-                }
-            );
+            pixel.addEventListener('contextmenu', pickColor);
             grid.appendChild(pixel);
         }
+
+        // Prevent context menu on the grid
+        grid.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+        });
 
         document.addEventListener('mouseup', stopDrawing);
 
         function draw(e) {
-            stopDrawing();
-            if (e.button !== 2) {
-                isDrawing = true;
-                lastPixel = e.target;
-                const [x1, y1] = getPixelXY(lastPixel);
-                drawPixel(x1, y1);
-            }
-            if (e.button === 2) {
-                isEyedropping = true;
-            }
+            if (e.button !== 0) return; // Only draw with left click
+            isDrawing = true;
+            lastPixel = e.target;
+            const [x1, y1] = getPixelXY(lastPixel);
+            drawPixel(x1, y1);
         }
 
         function drawIfDragging(e) {
@@ -102,23 +109,61 @@
                 drawSmoothLine(x1, y1, x2, y2);
                 lastPixel = e.target;
             }
-            if (isEyedropping) {
-                const color = e.target.style.backgroundColor || 'rgb(255, 255, 255)'; // Default to white if not initialized
-                if (color) {
-                    colorPicker.value = rgbToHex(color);
-                }
-            }
         }
 
         function stopDrawing() {
             isDrawing = false;
-            isEyedropping = false;
         }
 
         function dblClick(e) {
             const [x, y] = getPixelXY(e.target);
             const [tileX, tileY] = pixelXYToTileXY(x, y);
             fillTile(tileX, tileY);
+        }
+
+        function pickColor(e) {
+            e.preventDefault();
+            const pixel = e.target;
+            const color = pixel.style.backgroundColor;
+            
+            if (color) {
+                // Convert RGB to HEX format
+                const hexColor = rgbToHex(color);
+                colorPicker.value = hexColor;
+                
+                // Show tooltip with the color value
+                colorTooltip.textContent = `Color picked: ${hexColor}`;
+                colorTooltip.style.display = 'block';
+                colorTooltip.style.left = `${e.pageX + 10}px`;
+                colorTooltip.style.top = `${e.pageY + 10}px`;
+                
+                // Hide tooltip after 1.5 seconds
+                setTimeout(() => {
+                    colorTooltip.style.display = 'none';
+                }, 1500);
+            }
+        }
+
+        // Helper function to convert RGB to HEX
+        function rgbToHex(rgb) {
+            // If it's already in hex format or is 'white', return appropriate hex
+            if (rgb === '' || rgb === 'white' || rgb === '#fff') return '#ffffff';
+            if (rgb.startsWith('#')) return rgb;
+            
+            // Extract rgb values
+            const rgbValues = rgb.match(/\d+/g);
+            if (!rgbValues || rgbValues.length < 3) return '#ffffff';
+            
+            const r = parseInt(rgbValues[0]);
+            const g = parseInt(rgbValues[1]);
+            const b = parseInt(rgbValues[2]);
+            
+            return '#' + componentToHex(r) + componentToHex(g) + componentToHex(b);
+        }
+
+        function componentToHex(c) {
+            const hex = c.toString(16);
+            return hex.length === 1 ? '0' + hex : hex;
         }
 
         // Convert pixel coordinates to tile coordinates
@@ -171,13 +216,6 @@
             const pixels = document.querySelectorAll('.pixel');
             pixels.forEach(pixel => pixel.style.backgroundColor = '#fff');
         });
-
-        // Add helper function to convert RGB to Hex
-        function rgbToHex(rgb) {
-            if (!rgb || rgb === 'rgb(255, 255, 255)') return '#ffffff';
-            const [r, g, b] = rgb.match(/\d+/g).map(Number);
-            return '#' + [r, g, b].map(x => x.toString(16).padStart(2, '0')).join('');
-        }
     </script>
 </body>
 </html>
