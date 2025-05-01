@@ -81,7 +81,7 @@
 
     <script>
         const canvas = document.getElementById('pixelGrid');
-        const ctx = canvas.getContext('2d');
+        let ctx = canvas.getContext('2d');
         const colorPicker = document.getElementById('colorPicker');
         const clearButton = document.getElementById('clearGrid');
         const toggleBrushModeButton = document.getElementById('toggleBrushMode');
@@ -92,7 +92,7 @@
         let isDrawing = false;
         let lastPixel = null;
         const gridSize = 100;
-        const pixelSize = canvas.width / gridSize;
+        const tileSize = canvas.width / gridSize;
         let imageData = ctx.createImageData(canvas.width, canvas.height);
         let isTileBrushMode = false;
         let selectedPattern = null;
@@ -222,6 +222,7 @@
         // Create pattern preview tiles
         function createPatternPreviews() {
             patternGallery.innerHTML = '';
+            console.log(tilePatterns);
             tilePatterns.forEach((pattern, index) => {
                 const previewCanvas = document.createElement('canvas');
                 previewCanvas.width = 50;
@@ -241,10 +242,15 @@
                     previewCtx.fillStyle = color || colorPicker.value;
                     previewCtx.fillRect(x % 10, y % 10, 1, 1);
                 };
+                const tempDrawPattern = drawPattern;
+                drawPattern = (patternCanvas, x, y) => {
+                    previewCtx.drawImage(patternCanvas, x / 5, y / 5, patternCanvas.width / 5, patternCanvas.height / 5);
+                };
                 
                 pattern.draw(0, 0, colorPicker.value);
                 drawPixel = tempDrawPixel;
-                
+                drawPattern = tempDrawPattern;
+
                 previewCanvas.addEventListener('click', () => {
                     document.querySelectorAll('.pattern-option').forEach(el => el.classList.remove('selected'));
                     previewCanvas.classList.add('selected');
@@ -281,13 +287,13 @@
             ctx.strokeStyle = 'rgba(0, 0, 0, 0.1)';
             // Draw vertical lines
             for (let i = 0; i <= gridSize; i++) {
-                const x = i * pixelSize;
+                const x = i * tileSize;
                 ctx.moveTo(x, 0);
                 ctx.lineTo(x, canvas.height);
             }
             // Draw horizontal lines
             for (let i = 0; i <= gridSize; i++) {
-                const y = i * pixelSize;
+                const y = i * tileSize;
                 ctx.moveTo(0, y);
                 ctx.lineTo(canvas.width, y);
             }
@@ -297,12 +303,12 @@
             ctx.beginPath();
             ctx.strokeStyle = '#f66';
             for (let i = 0; i <= gridSize; i += 10) {
-                const x = i * pixelSize;
+                const x = i * tileSize;
                 ctx.moveTo(x, 0);
                 ctx.lineTo(x, canvas.height);
             }
             for (let i = 0; i <= gridSize; i += 10) {
-                const y = i * pixelSize;
+                const y = i * tileSize;
                 ctx.moveTo(0, y);
                 ctx.lineTo(canvas.width, y);
             }
@@ -313,8 +319,8 @@
             if (e.button !== 0) return; // Only draw with left click
             isDrawing = true;
             const rect = canvas.getBoundingClientRect();
-            const x = Math.floor((e.clientX - rect.left) / pixelSize);
-            const y = Math.floor((e.clientY - rect.top) / pixelSize);
+            const x = Math.floor((e.clientX - rect.left) / tileSize);
+            const y = Math.floor((e.clientY - rect.top) / tileSize);
             lastPixel = { x, y };
             if (isTileBrushMode) {
                 const [tileX, tileY] = pixelXYToTileXY(x, y);
@@ -327,8 +333,8 @@
         function drawIfDragging(e) {
             if (isDrawing) {
                 const rect = canvas.getBoundingClientRect();
-                const x = Math.floor((e.clientX - rect.left) / pixelSize);
-                const y = Math.floor((e.clientY - rect.top) / pixelSize);
+                const x = Math.floor((e.clientX - rect.left) / tileSize);
+                const y = Math.floor((e.clientY - rect.top) / tileSize);
                 if (isTileBrushMode) {
                     const [tileX, tileY] = pixelXYToTileXY(x, y);
                     const [lastTileX, lastTileY] = pixelXYToTileXY(lastPixel.x, lastPixel.y);
@@ -348,8 +354,8 @@
 
         function dblClick(e) {
             const rect = canvas.getBoundingClientRect();
-            const x = Math.floor((e.clientX - rect.left) / pixelSize);
-            const y = Math.floor((e.clientY - rect.top) / pixelSize);
+            const x = Math.floor((e.clientX - rect.left) / tileSize);
+            const y = Math.floor((e.clientY - rect.top) / tileSize);
             const [tileX, tileY] = pixelXYToTileXY(x, y);
             fillTile(tileX, tileY);
         }
@@ -357,20 +363,75 @@
         function pickColor(e) {
             e.preventDefault();
             const rect = canvas.getBoundingClientRect();
-            const x = Math.floor((e.clientX - rect.left) / pixelSize);
-            const y = Math.floor((e.clientY - rect.top) / pixelSize);
-            const pixelData = ctx.getImageData(x * pixelSize + 1, y * pixelSize + 1, 1, 1).data; // Offset to avoid grid lines
-            const hexColor = rgbToHex(`rgb(${pixelData[0]}, ${pixelData[1]}, ${pixelData[2]})`);
-            colorPicker.value = hexColor;
+            const x = Math.floor((e.clientX - rect.left) / tileSize);
+            const y = Math.floor((e.clientY - rect.top) / tileSize);
+            if (isTileBrushMode) {
+                pickTile(e, x, y);
+            } else {
+                const pixelData = ctx.getImageData(x * tileSize + 1, y * tileSize + 1, 1, 1).data; // Offset to avoid grid lines
+                const hexColor = rgbToHex(`rgb(${pixelData[0]}, ${pixelData[1]}, ${pixelData[2]})`);
+                colorPicker.value = hexColor;
+                
+                // Show tooltip with the color value
+                colorTooltip.textContent = `Color picked: ${hexColor}`;
+                colorTooltip.style.display = 'block';
+                colorTooltip.style.left = `${e.pageX + 10}px`;
+                colorTooltip.style.top = `${e.pageY + 10}px`;
+                
+                // Create new pattern previews with the selected color
+                createPatternPreviews();
+                
+                // Hide tooltip after 1.5 seconds
+                setTimeout(() => {
+                    colorTooltip.style.display = 'none';
+                }, 1500);
+            }
+        }
+
+        // Pick a tile from the grid and add it to patterns
+        function pickTile(e, pixelX, pixelY) {
+            const [tileX, tileY] = pixelXYToTileXY(pixelX, pixelY);
             
-            // Show tooltip with the color value
-            colorTooltip.textContent = `Color picked: ${hexColor}`;
+            // Create a canvas to store the tile pattern
+            const patternCanvas = document.createElement('canvas');
+            patternCanvas.width = tileSize * 10;  // 10x10 pixel tile
+            patternCanvas.height = tileSize * 10;
+            const pCtx = patternCanvas.getContext('2d');
+            
+            // Extract the tile pattern from the canvas
+            for (let x = 0; x < 10; x++) {
+                for (let y = 0; y < 10; y++) {
+                    const pixelData = ctx.getImageData((tileX * 10 + x) * tileSize + 1, (tileY * 10 + y) * tileSize + 1, 1, 1).data;
+                    if (pixelData[3] !== 0) { // Check if pixel is not transparent
+                        const color = rgbToHex(`rgb(${pixelData[0]}, ${pixelData[1]}, ${pixelData[2]})`);
+                        pCtx.fillStyle = color;
+                        pCtx.fillRect(x * tileSize, y * tileSize, tileSize, tileSize);
+                    }
+                }
+            }
+            
+            // Add the picked tile as a new pattern
+            const newPattern = {
+                name: `Picked Tile (${tileX}, ${tileY})`,
+                draw: (tileX, tileY, color) => {
+                    const leftPixelX = tileX * 10;
+                    const topPixelY = tileY * 10;
+                    drawPattern(patternCanvas, leftPixelX * tileSize, topPixelY * tileSize);
+                }
+            };
+            
+            tilePatterns.push(newPattern);
+            createPatternPreviews();
+            selectedPattern = newPattern;
+            document.querySelectorAll('.pattern-option').forEach(el => el.classList.remove('selected'));
+            const newSelected = patternGallery.lastChild;
+            newSelected.classList.add('selected');
+            
+            // Show tooltip with the tile coordinates
+            colorTooltip.textContent = `Tile picked: (${tileX}, ${tileY})`;
             colorTooltip.style.display = 'block';
             colorTooltip.style.left = `${e.pageX + 10}px`;
             colorTooltip.style.top = `${e.pageY + 10}px`;
-            
-            // Create new pattern previews with the selected color
-            createPatternPreviews();
             
             // Hide tooltip after 1.5 seconds
             setTimeout(() => {
@@ -425,8 +486,12 @@
         function drawPixel(x, y, color) {
             if (x >= 0 && x < gridSize && y >= 0 && y < gridSize) {
                 ctx.fillStyle = color || colorPicker.value;
-                ctx.fillRect(x * pixelSize, y * pixelSize, pixelSize, pixelSize);
+                ctx.fillRect(x * tileSize, y * tileSize, tileSize, tileSize);
             }
+        }
+
+        function drawPattern(patternCanvas, x, y) {
+            ctx.drawImage(patternCanvas, x, y);
         }
 
         clearButton.addEventListener('click', () => {
