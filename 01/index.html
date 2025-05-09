@@ -67,6 +67,8 @@
 <body>
     <div class="controls">
         <input type="color" id="colorPicker" value="#000000">
+        <button id="save1">Save 1</button>
+        <button id="load1">Load 1</button>
         <button id="clearGrid">Clear Grid</button>
         <button id="toggleBrushMode">Switch to Tile Brush</button>
         <div class="tooltip" id="colorTooltip">Right-click to pick color</div>
@@ -84,6 +86,8 @@
         let ctx = canvas.getContext('2d');
         const colorPicker = document.getElementById('colorPicker');
         const clearButton = document.getElementById('clearGrid');
+        const save1Button = document.getElementById('save1');
+        const load1Button = document.getElementById('load1');
         const toggleBrushModeButton = document.getElementById('toggleBrushMode');
         const colorTooltip = document.getElementById('colorTooltip');
         const patternContainer = document.getElementById('patternContainer');
@@ -272,6 +276,23 @@
         canvas.addEventListener('dblclick', dblClick);
         canvas.addEventListener('contextmenu', pickColor);
         document.addEventListener('mouseup', stopDrawing);
+
+        save1Button.addEventListener('click', () => {
+            const canvasData = canvas.toDataURL();
+            localStorage.setItem('canvasSave1', canvasData);
+        });
+
+        load1Button.addEventListener('click', () => {
+            const savedData = localStorage.getItem('canvasSave1');
+            if (savedData) {
+                const img = new Image();
+                img.onload = () => {
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                    ctx.drawImage(img, 0, 0);
+                };
+                img.src = savedData;
+            }
+        });
 
         // Update pattern previews when color changes
         colorPicker.addEventListener('input', createPatternPreviews);
